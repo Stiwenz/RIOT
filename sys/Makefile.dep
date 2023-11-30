@@ -517,6 +517,7 @@ ifneq (,$(filter gcoap,$(USEMODULE)))
   USEMODULE += sock_udp
   USEMODULE += sock_util
   USEMODULE += ztimer_msec
+  USEMODULE += ztimer_usec
   USEMODULE += event_callback
   USEMODULE += event_timeout_ztimer
   USEMODULE += random

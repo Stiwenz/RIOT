@@ -55,7 +55,7 @@ static mtd_spi_nor_t pinetime_nor_dev = {
     .params = &_pinetime_nor_params,
 };
 
-MTD_XFA_ADD(pinetime_nor_dev, 0);
+mtd_dev_t *mtd0 = (mtd_dev_t *)&pinetime_nor_dev;
 #endif /* MODULE_MTD */
 
 void board_init(void)

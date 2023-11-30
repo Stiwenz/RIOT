@@ -73,7 +73,7 @@ static mtd_spi_nor_t mulle_nor_dev = {
     .params = &mulle_nor_params,
 };
 
-MTD_XFA_ADD(mulle_nor_dev, 0);
+mtd_dev_t *mtd0 = (mtd_dev_t *)&mulle_nor_dev;
 
 static devfs_t mulle_nor_devfs = {
     .path = "/mtd0",

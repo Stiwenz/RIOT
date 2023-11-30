@@ -34,13 +34,9 @@ extern "C" {
  */
 #ifndef SLIPDEV_PARAM_UART
 # ifndef MODULE_SLIPDEV_STDIO
-#  ifdef MODULE_USBUS_CDC_ACM
-#   define SLIPDEV_PARAM_UART       UART_DEV(0)
-#  else
-#   define SLIPDEV_PARAM_UART       UART_DEV(1)
-#  endif
+#  define SLIPDEV_PARAM_UART        (UART_DEV(0))
 # else  /* MODULE_SLIPDEV_STDIO */
-#  define SLIPDEV_PARAM_UART        STDIO_UART_DEV
+#  define SLIPDEV_PARAM_UART        (STDIO_UART_DEV)
 # endif /* MODULE_SLIPDEV_STDIO */
 #endif  /* SLIPDEV_PARAM_UART */
 #ifndef SLIPDEV_PARAM_BAUDRATE

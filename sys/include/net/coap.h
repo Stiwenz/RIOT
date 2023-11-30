@@ -163,20 +163,14 @@ extern "C" {
  * @name    CoAP method codes used in header
  * @{
  */
-#define COAP_CLASS_REQ          (0) /**< Code Class for Request */
-
-/**
- * @brief   CoAP method codes used in request
- */
-typedef enum {
-    COAP_METHOD_GET    = 1,         /**< GET request (no paylod) */
-    COAP_METHOD_POST   = 2,         /**< POST request (resource processes payload) */
-    COAP_METHOD_PUT    = 3,         /**< PUT request (update resource with payload) */
-    COAP_METHOD_DELETE = 4,         /**< DELETE request (no payload, remove resource)*/
-    COAP_METHOD_FETCH  = 5,         /**< FETCH request (RFC 8132) */
-    COAP_METHOD_PATCH  = 6,         /**< PATCH request (RFC 8132) */
-    COAP_METHOD_IPATCH = 7,         /**< iPATCH request (RFC 8132) */
-} coap_method_t;
+#define COAP_CLASS_REQ          (0)
+#define COAP_METHOD_GET         (1)
+#define COAP_METHOD_POST        (2)
+#define COAP_METHOD_PUT         (3)
+#define COAP_METHOD_DELETE      (4)
+#define COAP_METHOD_FETCH       (5)
+#define COAP_METHOD_PATCH       (6)
+#define COAP_METHOD_IPATCH      (7)
 /** @} */
 
 /**
@@ -450,11 +444,6 @@ typedef enum {
  */
 #define COAP_FORMAT_TM_JSON                 (433)
 /**
- * @brief   Content-Type `application/dns-message`
- * @see     [draft-ietf-core-dns-over-coap](https://datatracker.ietf.org/doc/draft-ietf-core-dns-over-coap/)
- */
-#define COAP_FORMAT_DNS_MESSAGE             (553)
-/**
  * @brief   Content-Type `application/voucher-cose+cbor`
  * @see     [draft-ietf-anima-constrained-voucher](https://datatracker.ietf.org/doc/draft-ietf-anima-constrained-voucher/)
  * @note    Temporary registration until April 12, 2024.
@@ -511,6 +500,7 @@ typedef enum {
  * @see     [RFC 2318](https://www.w3.org/TR/SVG/mimereg.html)
  */
 #define COAP_FORMAT_IMAGE_SVG_XML         (30000)
+#define COAP_FORMAT_DNS_MESSAGE           (65053)       /**< NON STANDARD! */
 /** @} */
 
 /**

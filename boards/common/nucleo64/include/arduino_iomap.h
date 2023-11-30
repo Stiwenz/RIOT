@@ -41,13 +41,10 @@ extern "C" {
  * @name    Arduino's SPI buses
  * @{
  */
-#if !defined(ARDUINO_SPI_D11D12D13) && defined(SPI_NUMOF)
 /**
- * @brief   SPI_DEV(0) is connected to D11/D12/D13 for most Nucleo-64 boards
- *
- * This can be overwritten in `boards/nucleo-<foobar>/include/periph_conf.h` by
- * providing a custom `ARDUINO_SPI_D11D12D13`.
+ * @brief   SPI_DEV(1) is connected to D11/D12/D13
  */
+#if !defined(ARDUINO_SPI_D11D12D13) && defined(SPI_NUMOF)
 #define ARDUINO_SPI_D11D12D13   SPI_DEV(0)
 #endif
 /** @} */

@@ -10,6 +10,10 @@
  * @defgroup    sys_random Random
  * @ingroup     sys
  * @brief       Pseudo Random Number Generator (PRNG)
+ * @{
+ *
+ * @file
+ * @brief       Common interface to the software PRNG
  *
  * Various implementations of a PRNG are available:
  *  - Tiny Mersenne Twister (default)
@@ -20,16 +24,6 @@
  *  - Hardware Random Number Generator (non-seedable)
  *    HWRNG differ in how they generate random numbers and may not use a PRNG internally.
  *    Refer to the manual of your MCU for details.
- *
- * By default, the `auto_init_random` module is enabled, which initializes the
- * PRNG on startup. However, there is no lower limit on the entropy provided at
- * that time. Unless the `periph_hwrng` module is used, entropy may be as
- * little as zero (the constant may even be the same across devices).
- *
- * @{
- *
- * @file
- * @brief       Common interface to the software PRNG
  */
 
 #ifndef RANDOM_H
@@ -59,9 +53,6 @@ extern "C" {
 
 /**
  * @brief initializes PRNG with a seed
- *
- * Users only need to call this if the `auto_init_random` module is disabled,
- * or provides insufficient quality entropy.
  *
  * @warning Currently, the random module uses a global state
  * => multiple calls to @ref random_init will reset the existing

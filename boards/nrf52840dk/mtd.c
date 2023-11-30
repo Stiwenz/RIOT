@@ -52,7 +52,7 @@ static mtd_spi_nor_t nrf52840dk_nor_dev = {
     .params = &_nrf52840dk_nor_params,
 };
 
-MTD_XFA_ADD(nrf52840dk_nor_dev, 0);
+mtd_dev_t *mtd0 = (mtd_dev_t *)&nrf52840dk_nor_dev;
 
 #ifdef MODULE_VFS_DEFAULT
 #include "vfs_default.h"

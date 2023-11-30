@@ -33,28 +33,54 @@ extern "C" {
 #include "mtd_emulated.h"
 #endif
 
+#if !defined(MTD_NUMOF) && !DOXYGEN
+
+#if defined(MTD_3)
+#define MTD_BOARD_NUMOF     4
+#elif defined(MTD_2)
+#define MTD_BOARD_NUMOF     3
+#elif defined(MTD_1)
+#define MTD_BOARD_NUMOF     2
+#elif defined(MTD_0)
+#define MTD_BOARD_NUMOF     1
+#else
+#define MTD_BOARD_NUMOF     0
+#endif
+
+#define MTD_SDCARD_NUMOF    IS_USED(MODULE_MTD_SDCARD_DEFAULT)
+#define MTD_EMULATED_NUMOF  IS_USED(MODULE_MTD_EMULATED)
+
+/**
+ * @brief   Number of MTD devices
+ */
+#define MTD_NUMOF           (MTD_BOARD_NUMOF + MTD_SDCARD_NUMOF + MTD_EMULATED_NUMOF)
+
+#else
+#define MTD_BOARD_NUMOF     MTD_NUMOF
+#endif /*  !defined(MTD_NUMOF) && !DOXYGEN */
+
 #if !DOXYGEN
 
 /**
- * @brief   Declare `mtd*` according to the `MTD_*` symbols defined by the board
+ * @brief   Declare `mtd*` according to the number of MTD devices
  */
-#ifdef MTD_0
-extern mtd_dev_t *MTD_0;
+#if MTD_NUMOF > 0
+extern mtd_dev_t *mtd0;
 #endif
-#ifdef MTD_1
-extern mtd_dev_t *MTD_1;
+#if MTD_NUMOF > 1
+extern mtd_dev_t *mtd1;
 #endif
-#ifdef MTD_2
-extern mtd_dev_t *MTD_2;
+#if MTD_NUMOF > 2
+extern mtd_dev_t *mtd2;
 #endif
-#ifdef MTD_3
-extern mtd_dev_t *MTD_3;
+#if MTD_NUMOF > 3
+extern mtd_dev_t *mtd3;
 #endif
-#ifdef MTD_4
-extern mtd_dev_t *MTD_4;
+#if MTD_NUMOF > 4
+extern mtd_dev_t *mtd4;
 #endif
-#ifdef MTD_5
-extern mtd_dev_t *MTD_5;
+#if MTD_NUMOF > 5
+extern mtd_dev_t *mtd5;
 #endif
 #endif /* !DOXYGEN */
 
@@ -69,8 +95,6 @@ extern mtd_emulated_t mtd_emulated_dev0;
 /**
  * @brief   Get the default MTD device by index
  *
- * @deprecated  Use @ref mtd_dev_get instead
- *
  * @param[in] idx   Index of the MTD device
  *
  * @return  MTD_0 for @p idx 0 and so on
@@ -78,7 +102,27 @@ extern mtd_emulated_t mtd_emulated_dev0;
  */
 static inline mtd_dev_t *mtd_default_get_dev(unsigned idx)
 {
-    return ((MTD_NUMOF != 0) && (idx < MTD_NUMOF)) ? mtd_dev_xfa[idx] : NULL;
+    switch (idx) {
+#if MTD_BOARD_NUMOF > 0
+    case 0: return MTD_0;
+#endif
+#if MTD_BOARD_NUMOF > 1
+    case 1: return MTD_1;
+#endif
+#if MTD_BOARD_NUMOF > 2
+    case 2: return MTD_2;
+#endif
+#if MTD_BOARD_NUMOF > 3
+    case 3: return MTD_3;
+#endif
+#if MTD_SDCARD_NUMOF > 0
+    case MTD_BOARD_NUMOF: return (mtd_dev_t *)&mtd_sdcard_dev0;
+#endif
+#if MTD_EMULATED_NUMOF > 0
+    case MTD_BOARD_NUMOF + MTD_SDCARD_NUMOF: return (mtd_dev_t *)&mtd_emulated_dev0;
+#endif
+    }
+    return NULL;
 }
 
 #ifdef __cplusplus

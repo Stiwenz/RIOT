@@ -325,9 +325,6 @@ void cpu_init(void)
 #ifdef MODULE_PERIPH_PM
                        | MCLK_APBAMASK_PM
 #endif
-#ifdef MODULE_PERIPH_FREQM
-                       | MCLK_APBAMASK_FREQM
-#endif
 #ifdef MODULE_PERIPH_GPIO_IRQ
                        | MCLK_APBAMASK_EIC
 #endif

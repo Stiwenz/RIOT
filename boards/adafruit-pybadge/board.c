@@ -54,7 +54,7 @@ static mtd_spi_nor_t samd51_nor_dev = {
     .params = &_samd51_nor_params,
 };
 
-MTD_XFA_ADD(samd51_nor_dev, 0);
+mtd_dev_t *mtd0 = (mtd_dev_t *)&samd51_nor_dev;
 #endif /* MODULE_MTD */
 
 void board_init(void)

@@ -26,19 +26,18 @@
  * @}
  */
 
-#include <err.h>
+#include <time.h>
+#include <sys/time.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/time.h>
-#include <time.h>
+#include <err.h>
 
 #include "cpu.h"
 #include "cpu_conf.h"
 #include "native_internal.h"
 #include "periph/timer.h"
-#include "time_units.h"
 
 #define ENABLE_DEBUG 0
 #include "debug.h"
@@ -50,9 +49,7 @@ static unsigned long time_null;
 static timer_cb_t _callback;
 static void *_cb_arg;
 
-static struct itimerspec its;
-
-static timer_t itimer_monotonic;
+static struct itimerval itv;
 
 /**
  * returns ticks for give timespec
@@ -92,15 +89,8 @@ int timer_init(tim_t dev, uint32_t freq, timer_cb_t cb, void *arg)
 
     _callback = cb;
     _cb_arg = arg;
-
-    if (timer_create(CLOCK_MONOTONIC, NULL, &itimer_monotonic) != 0) {
-        DEBUG_PUTS("Failed to create a monotonic itimer");
-        return -1;
-    }
-
     if (register_interrupt(SIGALRM, native_isr_timer) != 0) {
-        DEBUG_PUTS("Failed to register SIGALRM handler");
-        return -1;
+        DEBUG("darn!\n\n");
     }
 
     return 0;
@@ -114,14 +104,14 @@ static void do_timer_set(unsigned int offset, bool periodic)
         offset = NATIVE_TIMER_MIN_RES;
     }
 
-    memset(&its, 0, sizeof(its));
-    its.it_value.tv_sec = offset / NATIVE_TIMER_SPEED;
-    its.it_value.tv_nsec = (offset % NATIVE_TIMER_SPEED) * (NS_PER_SEC / NATIVE_TIMER_SPEED);
+    memset(&itv, 0, sizeof(itv));
+    itv.it_value.tv_sec = (offset / 1000000);
+    itv.it_value.tv_usec = offset % 1000000;
     if (periodic) {
-        its.it_interval = its.it_value;
+        itv.it_interval = itv.it_value;
     }
 
-    DEBUG("timer_set(): setting %lu.%09lu\n", (unsigned long)its.it_value.tv_sec, its.it_value.tv_nsec);
+    DEBUG("timer_set(): setting %lu.%06lu\n", itv.it_value.tv_sec, itv.it_value.tv_usec);
 }
 
 int timer_set(tim_t dev, int channel, unsigned int offset)
@@ -181,8 +171,8 @@ void timer_start(tim_t dev)
     DEBUG("%s\n", __func__);
 
     _native_syscall_enter();
-    if (timer_settime(itimer_monotonic, 0, &its, NULL) == -1) {
-        err(EXIT_FAILURE, "timer_start: timer_settime");
+    if (real_setitimer(ITIMER_REAL, &itv, NULL) == -1) {
+        err(EXIT_FAILURE, "timer_arm: setitimer");
     }
     _native_syscall_leave();
 }
@@ -193,13 +183,13 @@ void timer_stop(tim_t dev)
     DEBUG("%s\n", __func__);
 
     _native_syscall_enter();
-    struct itimerspec zero = {0};
-    if (timer_settime(itimer_monotonic, 0, &zero, &its) == -1) {
-        err(EXIT_FAILURE, "timer_stop: timer_settime");
+    struct itimerval zero = {0};
+    if (real_setitimer(ITIMER_REAL, &zero, &itv) == -1) {
+        err(EXIT_FAILURE, "timer_arm: setitimer");
     }
     _native_syscall_leave();
 
-    DEBUG("time left: %lu.%09lu\n", (unsigned long)its.it_value.tv_sec, its.it_value.tv_nsec);
+    DEBUG("time left: %lu.%06lu\n", itv.it_value.tv_sec, itv.it_value.tv_usec);
 }
 
 unsigned int timer_read(tim_t dev)

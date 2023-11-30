@@ -43,6 +43,8 @@ extern "C" {
 #define NETDEV_IEEE802154_MINIMAL_NUMOF
 #endif
 
+#define PACKAGE_QTY 7
+
 /**
  * @brief   Device-under-test initialization function.
  * @note    Should be implemented by the test application

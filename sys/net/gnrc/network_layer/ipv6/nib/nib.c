@@ -1397,8 +1397,7 @@ static bool _resolve_addr(const ipv6_addr_t *dst, gnrc_netif_t *netif,
         return false;
     }
 
-    /* don't do multicast address resolution on 6lo */
-    if (!gnrc_netif_is_6ln(netif)) {
+    if (IS_ACTIVE(CONFIG_GNRC_IPV6_NIB_ARSM)) {
         _probe_nbr(entry, reset);
     }
 

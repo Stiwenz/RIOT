@@ -28,6 +28,8 @@
 
 #include <assert.h>
 
+#include "bitarithm.h"
+#include "cpu.h"
 #include "mutex.h"
 #include "periph/gpio.h"
 #include "periph/spi.h"
@@ -63,9 +65,9 @@ static mutex_t locks[SPI_NUMOF];
 static uint32_t clocks[SPI_NUMOF];
 
 /**
- * @brief   Clock prescaler cache
+ * @brief   Clock divider cache
  */
-static uint8_t prescalers[SPI_NUMOF];
+static uint8_t dividers[SPI_NUMOF];
 
 static inline SPI_TypeDef *dev(spi_t bus)
 {
@@ -79,24 +81,33 @@ static inline bool _use_dma(const spi_conf_t *conf)
 }
 #endif
 
-static uint8_t _get_prescaler(const spi_conf_t *conf, uint32_t clock)
+/**
+ * @brief Multiplier for clock divider calculations
+ *
+ * Makes the divider calculation fixed point
+ */
+#define SPI_APB_CLOCK_SHIFT          (4U)
+#define SPI_APB_CLOCK_MULT           (1U << SPI_APB_CLOCK_SHIFT)
+
+static uint8_t _get_clkdiv(const spi_conf_t *conf, uint32_t clock)
 {
     uint32_t bus_clock = periph_apb_clk(conf->apbbus);
-
-    uint8_t prescaler = 0;
-    uint32_t prescaled_clock = bus_clock >> 1;
-    const uint8_t prescaler_max = SPI_CR1_BR_Msk >> SPI_CR1_BR_Pos;
-    for (; (prescaled_clock > clock) && (prescaler < prescaler_max); prescaler++) {
-        prescaled_clock >>= 1;
+    /* Shift bus_clock with SPI_APB_CLOCK_SHIFT to create a fixed point int */
+    uint32_t div = (bus_clock << SPI_APB_CLOCK_SHIFT) / (2 * clock);
+    DEBUG("[spi] clock: divider: %"PRIu32"\n", div);
+    /* Test if the divider is 2 or smaller, keeping the fixed point in mind */
+    if (div <= SPI_APB_CLOCK_MULT) {
+        return 0;
     }
-
-    /* If the callers asks for an SPI frequency of at most x, bad things will
-     * happen if this cannot be met. So let's have a blown assertion
-     * rather than runtime failures that require a logic analyzer to
-     * debug. */
-    assert(prescaled_clock <= clock);
-
-    return prescaler;
+    /* determine MSB and compensate back for the fixed point int shift */
+    uint8_t rounded_div = bitarithm_msb(div) - SPI_APB_CLOCK_SHIFT;
+    /* Determine if rounded_div is not a power of 2 */
+    if ((div & (div - 1)) != 0) {
+        /* increment by 1 to ensure that the clock speed at most the
+         * requested clock speed */
+        rounded_div++;
+    }
+    return rounded_div > BR_MAX ? BR_MAX : rounded_div;
 }
 
 void spi_init(spi_t bus)
@@ -224,30 +235,30 @@ void spi_acquire(spi_t bus, spi_cs_t cs, spi_mode_t mode, spi_clk_t clk)
     periph_clk_en(spi_config[bus].apbbus, spi_config[bus].rccmask);
     /* enable device */
     if (clk != clocks[bus]) {
-        prescalers[bus] = _get_prescaler(&spi_config[bus], clk);
+        dividers[bus] = _get_clkdiv(&spi_config[bus], clk);
         clocks[bus] = clk;
     }
-    uint8_t br = prescalers[bus];
+    uint8_t br = dividers[bus];
 
-    DEBUG("[spi] acquire: requested clock: %" PRIu32
-          " Hz, resulting clock: %" PRIu32 " Hz, BR prescaler: %u\n",
+    DEBUG("[spi] acquire: requested clock: %"PRIu32", resulting clock: %"PRIu32
+          " BR divider: %u\n",
           clk,
-          periph_apb_clk(spi_config[bus].apbbus) >> (br + 1),
-          (unsigned)br);
+          periph_apb_clk(spi_config[bus].apbbus)/(1 << (br + 1)),
+          br);
 
-    uint16_t cr1 = ((br << BR_SHIFT) | mode | SPI_CR1_MSTR | SPI_CR1_SPE);
+    uint16_t cr1_settings = ((br << BR_SHIFT) | mode | SPI_CR1_MSTR);
     /* Settings to add to CR2 in addition to SPI_CR2_SETTINGS */
-    uint16_t cr2 = SPI_CR2_SETTINGS;
+    uint16_t cr2_extra_settings = 0;
     if (cs != SPI_HWCS_MASK) {
-        cr1 |= (SPI_CR1_SSM | SPI_CR1_SSI);
+        cr1_settings |= (SPI_CR1_SSM | SPI_CR1_SSI);
     }
     else {
-        cr2 = (SPI_CR2_SSOE);
+        cr2_extra_settings = (SPI_CR2_SSOE);
     }
 
 #ifdef MODULE_PERIPH_DMA
     if (_use_dma(&spi_config[bus])) {
-        cr2 |= SPI_CR2_TXDMAEN | SPI_CR2_RXDMAEN;
+        cr2_extra_settings |= SPI_CR2_TXDMAEN | SPI_CR2_RXDMAEN;
 
         dma_acquire(spi_config[bus].tx_dma);
         dma_setup(spi_config[bus].tx_dma,
@@ -266,8 +277,11 @@ void spi_acquire(spi_t bus, spi_cs_t cs, spi_mode_t mode, spi_clk_t clk)
                   0);
     }
 #endif
-    dev(bus)->CR1 = cr1;
-    dev(bus)->CR2 = cr2;
+    dev(bus)->CR1 = cr1_settings;
+    /* Only modify CR2 if needed */
+    if (cr2_extra_settings) {
+        dev(bus)->CR2 = (SPI_CR2_SETTINGS | cr2_extra_settings);
+    }
 }
 
 void spi_release(spi_t bus)
@@ -382,11 +396,9 @@ void spi_transfer_bytes(spi_t bus, spi_cs_t cs, bool cont,
     assert(out || in);
 
     /* active the given chip select line */
+    dev(bus)->CR1 |= (SPI_CR1_SPE);     /* this pulls the HW CS line low */
     if ((cs != SPI_HWCS_MASK) && gpio_is_valid(cs)) {
         gpio_clear((gpio_t)cs);
-    }
-    else {
-        dev(bus)->CR2 |= SPI_CR2_SSOE;
     }
 
 #ifdef MODULE_PERIPH_DMA
@@ -402,11 +414,9 @@ void spi_transfer_bytes(spi_t bus, spi_cs_t cs, bool cont,
 
     /* release the chip select if not specified differently */
     if ((!cont) && gpio_is_valid(cs)) {
+        dev(bus)->CR1 &= ~(SPI_CR1_SPE);    /* pull HW CS line high */
         if (cs != SPI_HWCS_MASK) {
             gpio_set((gpio_t)cs);
-        }
-        else {
-            dev(bus)->CR2 &= ~(SPI_CR2_SSOE);
         }
     }
 }

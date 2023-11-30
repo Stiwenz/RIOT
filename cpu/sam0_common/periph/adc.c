@@ -49,6 +49,16 @@ static int _adc_configure(Adc *dev, adc_res_t res);
 
 static mutex_t _lock = MUTEX_INIT;
 
+static inline void _prep(void)
+{
+    mutex_lock(&_lock);
+}
+
+static inline void _done(void)
+{
+    mutex_unlock(&_lock);
+}
+
 static inline void _wait_syncbusy(Adc *dev)
 {
 #ifdef ADC_STATUS_SYNCBUSY
@@ -253,7 +263,7 @@ int adc_init(adc_t line)
     const uint8_t adc = 0;
 #endif
 
-    mutex_lock(&_lock);
+    _prep();
 
     uint8_t muxpos = (adc_channels[line].inputctrl & ADC_INPUTCTRL_MUXPOS_Msk)
                    >> ADC_INPUTCTRL_MUXPOS_Pos;
@@ -274,44 +284,34 @@ int adc_init(adc_t line)
         gpio_init_mux(sam0_adc_pins[adc][muxneg], GPIO_MUX_B);
     }
 
-     mutex_unlock(&_lock);
+    _done();
 
     return 0;
 }
 
-static Adc *_dev(adc_t line)
+int32_t adc_sample(adc_t line, adc_res_t res)
 {
-    /* The SAMD5x/SAME5x family has two ADCs: ADC0 and ADC1. */
-#ifdef ADC0
-    return adc_channels[line].dev;
-#else
-    (void)line;
-    return ADC;
-#endif
-}
-
-static Adc *_adc(uint8_t dev)
-{
-    /* The SAMD5x/SAME5x family has two ADCs: ADC0 and ADC1. */
-#ifdef ADC0
-    switch (dev) {
-    case 0:
-        return ADC0;
-    case 1:
-        return ADC1;
-    default:
-        return NULL;
+    if (line >= ADC_NUMOF) {
+        DEBUG("adc: line arg not applicable\n");
+        return -1;
     }
-#else
-    (void)dev;
-    return ADC;
-#endif
-}
 
-static int32_t _sample(adc_t line)
-{
-    Adc *dev = _dev(line);
+    /* The SAMD5x/SAME5x family has two ADCs: ADC0 and ADC1. */
+#ifdef ADC0
+    Adc *dev = adc_channels[line].dev;
+#else
+    Adc *dev = ADC;
+#endif
+
     bool diffmode = adc_channels[line].inputctrl & ADC_INPUTCTRL_DIFFMODE;
+
+    _prep();
+
+    if (_adc_configure(dev, res) != 0) {
+        _done();
+        DEBUG("adc: configuration failed\n");
+        return -1;
+    }
 
     dev->INPUTCTRL.reg = ADC_GAIN_FACTOR_DEFAULT
                        | adc_channels[line].inputctrl
@@ -319,6 +319,7 @@ static int32_t _sample(adc_t line)
 #ifdef ADC_CTRLB_DIFFMODE
     dev->CTRLB.bit.DIFFMODE = diffmode;
 #endif
+
     _wait_syncbusy(dev);
 
     /* Start the conversion */
@@ -330,6 +331,9 @@ static int32_t _sample(adc_t line)
     uint16_t sample = dev->RESULT.reg;
     int result;
 
+    _adc_poweroff(dev);
+    _done();
+
     /* in differential mode we lose one bit for the sign */
     if (diffmode) {
         result = 2 * (int16_t)sample;
@@ -337,104 +341,11 @@ static int32_t _sample(adc_t line)
         result = sample;
     }
 
-    return result;
-}
-
-static uint8_t _shift_from_res(adc_res_t res)
-{
     /* 16 bit mode is implemented as oversampling */
     if ((res & 0x3) == 1) {
         /* ADC does automatic right shifts beyond 16 samples */
-        return 4 - MIN(4, res >> 2);
-    }
-    return 0;
-}
-
-static void _get_adcs(bool *adc0, bool *adc1)
-{
-#ifndef ADC1
-    *adc0 = true;
-    *adc1 = false;
-    return;
-#else
-    *adc0 = false;
-    *adc1 = false;
-    for (unsigned i = 0; i < ADC_NUMOF; ++i) {
-        if (adc_channels[i].dev == ADC0) {
-            *adc0 = true;
-        } else if (adc_channels[i].dev == ADC1) {
-            *adc1 = true;
-        }
-    }
-#endif
-}
-
-static uint8_t _shift;
-void adc_continuous_begin(adc_res_t res)
-{
-    bool adc0, adc1;
-    _get_adcs(&adc0, &adc1);
-
-    mutex_lock(&_lock);
-
-    if (adc0) {
-        _adc_configure(_adc(0), res);
-    }
-    if (adc1) {
-        _adc_configure(_adc(1), res);
+        result <<= (4 - MIN(4, res >> 2));
     }
 
-    _shift = _shift_from_res(res);
-}
-
-int32_t adc_continuous_sample(adc_t line)
-{
-    int val;
-    assert(line < ADC_NUMOF);
-
-    mutex_lock(&_lock);
-    val = _sample(line) << _shift;
-    mutex_unlock(&_lock);
-
-    return val;
-}
-
-void adc_continuous_stop(void)
-{
-    bool adc0, adc1;
-    _get_adcs(&adc0, &adc1);
-
-    if (adc0) {
-        _adc_poweroff(_adc(0));
-    }
-    if (adc1) {
-        _adc_poweroff(_adc(1));
-    }
-
-    mutex_unlock(&_lock);
-}
-
-int32_t adc_sample(adc_t line, adc_res_t res)
-{
-    if (line >= ADC_NUMOF) {
-        DEBUG("adc: line arg not applicable\n");
-        return -1;
-    }
-
-    mutex_lock(&_lock);
-
-    Adc *dev = _dev(line);
-
-    if (_adc_configure(dev, res) != 0) {
-        DEBUG("adc: configuration failed\n");
-        mutex_unlock(&_lock);
-        return -1;
-    }
-
-    int val = _sample(line) << _shift_from_res(res);
-
-    _adc_poweroff(dev);
-    mutex_unlock(&_lock);
-
-    return val;
+    return result;
 }
