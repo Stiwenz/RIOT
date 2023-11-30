@@ -36,6 +36,8 @@ typedef struct {
 
 extern device_reg_entry_t _devices[NETDEV_IEEE802154_MINIMAL_NUMOF];
 
+
+
 #endif /* DOXYGEN */
 
 #ifdef __cplusplus

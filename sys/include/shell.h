@@ -22,7 +22,7 @@
 
 #include <stdint.h>
 #include "periph/pm.h"
-
+#include "byteorder.h"
 #include "modules.h"
 #include "xfa.h"
 
@@ -85,7 +85,9 @@ extern "C" {
  * @note            Only executed with the `shell_hooks` module.
  */
 void shell_post_readline_hook(void);
-
+int send_ieee(int iface, le_uint16_t dst_pan, uint8_t *dst_addr,
+                size_t dst_len, char *data, uint16_t data_size);
+int cmd_txtsnd(int argc, char **argv);
 /**
  * @brief           Optional hook before shell command is called.
  * @details         User implemented function gets called before a valid shell

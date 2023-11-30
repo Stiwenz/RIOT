@@ -206,6 +206,11 @@ int gpio_read(gpio_t pin)
     return (_port(pin)->IDR & (1 << _pin_num(pin)));
 }
 
+uint32_t gpio_read_port(GPIO_TypeDef *port)
+{
+    return (port->IDR);
+}
+
 void gpio_set(gpio_t pin)
 {
     _port(pin)->BSRR = (1 << _pin_num(pin));

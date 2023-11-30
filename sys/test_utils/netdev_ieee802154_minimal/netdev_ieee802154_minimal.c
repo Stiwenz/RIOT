@@ -27,12 +27,17 @@
 #include "net/netdev/ieee802154.h"
 #include "test_utils/netdev_ieee802154_minimal.h"
 #include "netdev_ieee802154_minimal_internal.h"
-
+#include "cmx638.h"
 /* provided by the test application */
 #include "init_dev.h"
 
+static char decode_stack[2048];
+
+kernel_pid_t decode_task;
+
+static uint8_t buffer_sec[IEEE802154G_FRAME_LEN_MAX];
 device_reg_entry_t _devices[NETDEV_IEEE802154_MINIMAL_NUMOF];
-static uint8_t _buffer[IEEE802154_FRAME_LEN_MAX];
+static uint8_t _buffer[IEEE802154G_FRAME_LEN_MAX];
 static char _addr_str[IEEE802154_LONG_ADDRESS_LEN * 3];
 
 struct event_pkt_desc {
@@ -83,18 +88,20 @@ static void _post_set_event(event_t *event)
     int res = dev->driver->set(dev, opt, data, len);
     desc->res = res;
 }
+    size_t mhr_len;
 
 void _recv(netdev_t *dev)
 {
     uint8_t src[IEEE802154_LONG_ADDRESS_LEN], dst[IEEE802154_LONG_ADDRESS_LEN];
     int data_len, src_len, dst_len;
-    size_t mhr_len;
     netdev_ieee802154_rx_info_t rx_info;
     le_uint16_t src_pan, dst_pan;
 
-    putchar('\n');
+    // putchar('\n');
     /* receive the frame */
     data_len = dev->driver->recv(dev, _buffer, sizeof(_buffer), &rx_info);
+    // printf("rx data_len = %d\n", data_len);
+
     mhr_len = ieee802154_get_frame_hdr_len(_buffer);
     if (mhr_len == 0) {
         puts("Unexpected MHR for incoming packet");
@@ -102,54 +109,68 @@ void _recv(netdev_t *dev)
     }
 
     /* get and print addresses */
-    dst_len = ieee802154_get_dst(_buffer, dst, &dst_pan);
-    src_len = ieee802154_get_src(_buffer, src, &src_pan);
+    // dst_len = ieee802154_get_dst(_buffer, dst, &dst_pan);
+    // src_len = ieee802154_get_src(_buffer, src, &src_pan);
 
-    l2util_addr_to_str(dst, dst_len, _addr_str);
-    printf("Dest. PAN: 0x%04x\n", byteorder_ltohs(dst_pan));
-    printf("Dest. addr.: %s\n", _addr_str);
+    // l2util_addr_to_str(dst, dst_len, _addr_str);
+    // printf("Dest. PAN: 0x%04x\n", byteorder_ltohs(dst_pan));
+    // printf("Dest. addr.: %s\n", _addr_str);
 
-    l2util_addr_to_str(src, src_len, _addr_str);
-    printf("Src. PAN: 0x%04x\n", byteorder_ltohs(src_pan));
-    printf("Src. addr.: %s\n", _addr_str);
+    // l2util_addr_to_str(src, src_len, _addr_str);
+    // printf("Src. PAN: 0x%04x\n", byteorder_ltohs(src_pan));
+    // printf("Src. addr.: %s\n", _addr_str);
 
     /* check frame type */
-    switch (_buffer[0] & IEEE802154_FCF_TYPE_MASK) {
-        case IEEE802154_FCF_TYPE_BEACON:
-            puts("BEACON");
-            break;
-        case IEEE802154_FCF_TYPE_DATA:
-            puts("DATA");
-            break;
-        case IEEE802154_FCF_TYPE_ACK:
-            puts("ACK");
-            break;
-        case IEEE802154_FCF_TYPE_MACCMD:
-            puts("MACCMD");
-            break;
-        default:
-            puts("UNKNOWN");
-            break;
+    // switch (_buffer[0] & IEEE802154_FCF_TYPE_MASK) {
+    //     case IEEE802154_FCF_TYPE_BEACON:
+    //         // puts("BEACON");
+    //         break;
+    //     case IEEE802154_FCF_TYPE_DATA:
+    //         // puts("DATA");
+    //         break;
+    //     case IEEE802154_FCF_TYPE_ACK:
+    //         // puts("ACK");
+    //         break;
+    //     case IEEE802154_FCF_TYPE_MACCMD:
+    //         puts("MACCMD");
+    //         break;
+    //     default:
+    //         puts("UNKNOWN");
+    //         break;
+    // }
+
+    // /* print flag information */
+    // printf("\nSecurity: %s", _buffer[0] & IEEE802154_FCF_SECURITY_EN ? "1, " : "0, ");
+
+    // printf("Frame pend.: %s", _buffer[0] & IEEE802154_FCF_FRAME_PEND ? "1, " : "0, ");
+
+    // printf("ACK req.: %s", _buffer[0] & IEEE802154_FCF_ACK_REQ ? "1, " : "0, ");
+
+    // printf("PAN comp.:%s", _buffer[0] & IEEE802154_FCF_PAN_COMP ? "1, " : "0, ");
+
+    // printf("Version: ");
+    // printf("%u, ", (unsigned)((_buffer[1] & IEEE802154_FCF_VERS_MASK) >> 4));
+
+    // printf("Seq.: %u\n", (unsigned)ieee802154_get_seq(_buffer));
+
+    // printf("RSSI: %i, LQI: %u\n\n", rx_info.rssi, rx_info.lqi);
+
+    // /* dump the payload */
+    // od_hex_dump(_buffer + mhr_len, data_len - mhr_len, 0);
+    // printf("rx data len = %d\n", data_len - mhr_len);
+    // for (int i = 0; i < PACKAGE_QTY; i++)
+    // {
+    //         cmx638_decode_package(_buffer + mhr_len + (i * 27), 27);
+    //         ztimer_sleep(ZTIMER_USEC, 60 * US_PER_MS);
+    // }
+    // cmx638_decode_package(_buffer + mhr_len, 27);
+    if(PACKAGE_QTY == 1)
+    cmx638_decode_package(_buffer + mhr_len, 27);
+    else
+    {
+        memcpy(buffer_sec, _buffer + mhr_len, data_len - mhr_len);
+        thread_wakeup(decode_task);
     }
-
-    /* print flag information */
-    printf("\nSecurity: %s", _buffer[0] & IEEE802154_FCF_SECURITY_EN ? "1, " : "0, ");
-
-    printf("Frame pend.: %s", _buffer[0] & IEEE802154_FCF_FRAME_PEND ? "1, " : "0, ");
-
-    printf("ACK req.: %s", _buffer[0] & IEEE802154_FCF_ACK_REQ ? "1, " : "0, ");
-
-    printf("PAN comp.:%s", _buffer[0] & IEEE802154_FCF_PAN_COMP ? "1, " : "0, ");
-
-    printf("Version: ");
-    printf("%u, ", (unsigned)((_buffer[1] & IEEE802154_FCF_VERS_MASK) >> 4));
-
-    printf("Seq.: %u\n", (unsigned)ieee802154_get_seq(_buffer));
-
-    printf("RSSI: %i, LQI: %u\n\n", rx_info.rssi, rx_info.lqi);
-
-    /* dump the payload */
-    od_hex_dump(_buffer + mhr_len, data_len - mhr_len, 0);
 }
 
 static void _isr_event_handler(event_t *event)
@@ -160,9 +181,13 @@ static void _isr_event_handler(event_t *event)
     netdev->driver->isr(netdev);
 }
 
+bool tx_done = true;
+
 static void _event_cb(netdev_t *dev, netdev_event_t event)
 {
     device_reg_entry_t *device = dev->context;
+
+
 
     switch (event) {
     case NETDEV_EVENT_ISR:
@@ -174,23 +199,25 @@ static void _event_cb(netdev_t *dev, netdev_event_t event)
         break;
 
     case NETDEV_EVENT_TX_COMPLETE:
-        puts("Tx complete");
+        tx_done = true;
+        // puts("Tx complete");
         break;
 
-    case NETDEV_EVENT_TX_COMPLETE_DATA_PENDING:
-        puts("Tx complete (with pending data)");
-        break;
+    // case NETDEV_EVENT_TX_COMPLETE_DATA_PENDING:
+    //     // puts("Tx complete (with pending data)");
+    //     break;
 
-    case NETDEV_EVENT_TX_MEDIUM_BUSY:
-        puts("Medium busy");
-        break;
+    // case NETDEV_EVENT_TX_MEDIUM_BUSY:
+    //     puts("Medium busy");
+    //     break;
 
     case NETDEV_EVENT_TX_NOACK:
+        tx_done = true;
         puts("No ACK");
         break;
 
     default:
-        printf("Event: %d\n", event);
+        // printf("Event: %d\n", event);
         break;
     }
 }
@@ -211,8 +238,33 @@ void netdev_register_signal(struct netdev *dev, netdev_type_t type, uint8_t inde
     _devices[index].event.handler = _isr_event_handler;
 }
 
+
+
+void *decode_thread(void *arg)
+{
+    uint32_t current_time = 0;
+    uint32_t end_time = 0;
+    while (1)
+    {
+        thread_sleep();
+        for (int i = 0; i < PACKAGE_QTY; i++)
+        {
+           current_time = xtimer_now_usec();
+            cmx638_decode_package(buffer_sec + (i * 27), 27);
+            end_time = xtimer_now_usec() - current_time;
+            if(end_time > 500) printf("decode time = %ld us\n", end_time);
+            ztimer_sleep(ZTIMER_USEC, 60 * US_PER_MS);
+        }
+
+    }
+    
+    return NULL;
+}
+
 int netdev_ieee802154_minimal_init(void)
 {
+    decode_task = thread_create(decode_stack, sizeof(decode_stack), THREAD_PRIORITY_MAIN + 1,
+                                             THREAD_CREATE_STACKTEST, decode_thread, NULL, "decode");
     return netdev_ieee802154_minimal_init_devs(_event_cb);
 }
 

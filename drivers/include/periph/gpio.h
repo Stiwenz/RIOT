@@ -231,6 +231,7 @@ void gpio_irq_disable(gpio_t pin);
  */
 int gpio_read(gpio_t pin);
 
+uint32_t gpio_read_port(GPIO_TypeDef * port);
 /**
  * @brief   Set the given pin to HIGH
  *
