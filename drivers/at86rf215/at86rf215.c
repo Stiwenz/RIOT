@@ -42,6 +42,7 @@ static void _setup_interface(at86rf215_t *dev, const at86rf215_params_t *params,
 
 void at86rf215_setup(at86rf215_t *dev_09, at86rf215_t *dev_24, const at86rf215_params_t *params, uint8_t index)
 {
+    at86rf215_reg_write(dev_09, 0x05, 0x07);
     /* configure the sub-GHz interface */
     if (dev_09) {
         dev_09->RF = &RF09_regs;

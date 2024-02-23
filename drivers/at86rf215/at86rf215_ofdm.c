@@ -190,7 +190,7 @@ static void _set_option(at86rf215_t *dev, uint8_t option)
     }
     else {
         at86rf215_reg_write16(dev, dev->RF->RG_CCF0L,
-                              1 + _channel_center_freq_kHz_868MHz(option) / 25);
+                              433000 / 25);
     }
 
     at86rf215_reg_write(dev, dev->BBC->RG_OFDMC, option - 1);
@@ -280,6 +280,11 @@ int at86rf215_configure_OFDM(at86rf215_t *dev, uint8_t option, uint8_t scheme)
 #ifdef MODULE_NETDEV_IEEE802154_MR_FSK
     dev->fsk_pl = 0;
 #endif
+
+    // uint32_t freq = 433000000;
+    // uint16_t base = freq / 25000;
+    // at86rf215_reg_write(dev, 0x105, base & 0xFF);
+    // at86rf215_reg_write(dev, 0x105, base >> 8);
 
     at86rf215_enable_radio(dev, BB_MROFDM);
 
