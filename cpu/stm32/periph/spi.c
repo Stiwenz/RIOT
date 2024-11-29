@@ -392,6 +392,7 @@ static void _transfer_no_dma(spi_t bus, const void *out, void *in, size_t len)
 void spi_transfer_bytes(spi_t bus, spi_cs_t cs, bool cont,
                         const void *out, void *in, size_t len)
 {
+    // printf("SPI%d transfer start\n", bus);
     /* make sure at least one input or one output buffer is given */
     assert(out || in);
 
@@ -402,11 +403,14 @@ void spi_transfer_bytes(spi_t bus, spi_cs_t cs, bool cont,
     }
 
 #ifdef MODULE_PERIPH_DMA
+    // printf(" DMA\n");
     if (_use_dma(&spi_config[bus])) {
+        // printf(" DMA tx\n");
         _transfer_dma(bus, out, in, len);
     }
     else {
 #endif
+    // printf("no DMA\n");
         _transfer_no_dma(bus, out, in, len);
 #ifdef MODULE_PERIPH_DMA
     }
@@ -419,4 +423,5 @@ void spi_transfer_bytes(spi_t bus, spi_cs_t cs, bool cont,
             gpio_set((gpio_t)cs);
         }
     }
+    // printf("SPI%d transfer end\n", bus);
 }

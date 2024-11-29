@@ -61,13 +61,14 @@ int at86rf215_hardware_reset(at86rf215_t *dev)
     while (--tries && (state == 0xFF || !(state & IRQS_WAKEUP_MASK))) {
         state = _get_reg_with_lock(dev, dev->RF->RG_IRQS);
     }
-
+    // if(tries == 0)
+    // printf("stuck in at86rf215_hardware_reset\n");
     spi_release(SPIDEV);
 
     /* no device connected */
-    if (!tries) {
-        return -ENODEV;
-    }
+    // if (!tries) {
+    //     return -ENODEV;
+    // }
 
     /* enable battery monitor */
     if (IS_ACTIVE(MODULE_AT86RF215_BATMON)) {

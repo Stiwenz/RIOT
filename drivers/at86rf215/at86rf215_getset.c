@@ -23,7 +23,7 @@
 #include "at86rf215_internal.h"
 #include "periph/spi.h"
 
-#define ENABLE_DEBUG 0
+#define ENABLE_DEBUG 1
 #include "debug.h"
 
 /* we can still go +3 dBm higher by increasing PA current */
@@ -196,7 +196,10 @@ void at86rf215_set_txpower(const at86rf215_t *dev, int16_t txpower)
 
         txpower = PAC_TXPWR_MASK;
     }
-
+    // pacur = 0x60; // RFn_PAC.PACUR=0x3 no current limits
+    DEBUG("RF09_PAC.TXPWR = %d\n", txpower);
+    // DEBUG("RF09_PAC.PACUR = 0x%02X\n", pacur);
+    DEBUG("RF09_PAC = 0x%02X\n", pacur | txpower);
     at86rf215_reg_write(dev, dev->RF->RG_PAC, pacur | txpower);
 }
 
@@ -330,8 +333,10 @@ bool at86rf215_set_rx_from_idle(at86rf215_t *dev, uint8_t *state)
     }
 
     uint8_t s;
-    while ((s = at86rf215_get_rf_state(dev)) == RF_STATE_TRANSITION) {}
-
+    uint8_t tries = 255;
+    while (--tries &&(s = at86rf215_get_rf_state(dev)) == RF_STATE_TRANSITION) {}
+    if(tries == 0)
+    DEBUG("stuck in at86rf215_set_rx_from_idle\n");
     if (state) {
         *state = s;
     }
@@ -370,8 +375,10 @@ bool at86rf215_set_idle_from_rx(at86rf215_t *dev, uint8_t state)
     }
 
     uint8_t s;
-    while ((s = at86rf215_get_rf_state(dev)) == RF_STATE_TRANSITION) {}
-
+    uint8_t tries = 255;
+    while (--tries &&(s = at86rf215_get_rf_state(dev)) == RF_STATE_TRANSITION) {}
+    if(tries == 0)
+    DEBUG("stuck in at86rf215_set_rx_from_idle\n");
     if (s != RF_STATE_RX) {
         return false;
     }

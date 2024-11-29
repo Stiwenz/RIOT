@@ -585,7 +585,10 @@ static inline uint8_t at86rf215_get_rf_state(const at86rf215_t *dev)
  */
 static inline void at86rf215_await_state(const at86rf215_t *dev, uint8_t state)
 {
-    while (at86rf215_get_rf_state(dev) != state) {}
+    uint8_t tries = 255;
+    while (--tries && at86rf215_get_rf_state(dev) != state) {}
+    // if(tries == 0)
+    // DEBUG("stuck in at86rf215_await_state\n");
 }
 
 /**
@@ -596,7 +599,10 @@ static inline void at86rf215_await_state(const at86rf215_t *dev, uint8_t state)
  */
 static inline void at86rf215_await_state_end(const at86rf215_t *dev, uint8_t state)
 {
-    while (at86rf215_get_rf_state(dev) == state) {}
+    uint8_t tries = 255;
+    while (--tries &&at86rf215_get_rf_state(dev) == state) {}
+    // if(tries == 0)
+    // DEBUG("stuck in at86rf215_await_state_end\n");
 }
 
 /**

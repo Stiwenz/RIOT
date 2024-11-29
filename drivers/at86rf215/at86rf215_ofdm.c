@@ -190,7 +190,8 @@ static void _set_option(at86rf215_t *dev, uint8_t option)
     }
     else {
         at86rf215_reg_write16(dev, dev->RF->RG_CCF0L,
-                              433000 / 25);
+                            //   428250 / 25);
+                            428200 / 25);
     }
 
     at86rf215_reg_write(dev, dev->BBC->RG_OFDMC, option - 1);

@@ -40,9 +40,14 @@ static void _setup_interface(at86rf215_t *dev, const at86rf215_params_t *params,
     netdev_register(netdev, NETDEV_AT86RF215, index);
 }
 
+#include "xtimer.h"
+
 void at86rf215_setup(at86rf215_t *dev_09, at86rf215_t *dev_24, const at86rf215_params_t *params, uint8_t index)
 {
-    at86rf215_reg_write(dev_09, 0x05, 0x07);
+    at86rf215_reg_write(dev_09, 0x0005, 0x07);
+    ztimer_sleep(ZTIMER_MSEC, 200);
+    at86rf215_reg_write(dev_09, 0x0103, 0x07);
+    ztimer_sleep(ZTIMER_MSEC, 200);
     /* configure the sub-GHz interface */
     if (dev_09) {
         dev_09->RF = &RF09_regs;
@@ -256,15 +261,16 @@ static bool _tx_ongoing(at86rf215_t *dev)
 static void _block_while_busy(at86rf215_t *dev)
 {
     gpio_irq_disable(dev->params.int_pin);
-
+    uint8_t tries = 255;
     do {
         if (gpio_read(dev->params.int_pin) || dev->timeout) {
             at86rf215_driver.isr(&dev->netdev.netdev);
         }
         /* allow the other interface to process events */
         thread_yield();
-    } while (_tx_ongoing(dev));
-
+    } while (--tries &&_tx_ongoing(dev));
+    if(tries == 0)
+    DEBUG("stuck in block while busy\n");
     gpio_irq_enable(dev->params.int_pin);
 }
 
@@ -370,8 +376,10 @@ bool at86rf215_cca(at86rf215_t *dev)
 
     /* start energy detect */
     at86rf215_reg_write(dev, dev->RF->RG_EDC, RF_EDSINGLE);
-    while (!(at86rf215_reg_read(dev, dev->RF->RG_IRQS) & RF_IRQ_EDC)) {}
-
+    uint8_t tries = 255;
+    while (--tries && !(at86rf215_reg_read(dev, dev->RF->RG_IRQS) & RF_IRQ_EDC)) {}
+    if(tries == 0)
+    DEBUG("stuck in at86rf215_cca\n");
     clear = !(at86rf215_reg_read(dev, dev->BBC->RG_AMCS) & AMCS_CCAED_MASK);
 
     /* enable ED IRQ, baseband */
